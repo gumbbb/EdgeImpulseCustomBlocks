@@ -1,0 +1,7 @@
+pandas>=2.3.3
+numpy>=1.26.4
+pyarrow>=19.0.1
+tqdm>=4.67.1
+scikit-learn>=1.7.2
+seaborn>=0.13.2
+matplotlib>=3.10.7

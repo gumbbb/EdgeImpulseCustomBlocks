@@ -1,0 +1,45 @@
+{
+    "version": 1,
+    "type": "transform",
+    "info": {
+        "name": "Preprocess Standalone for LGBM",
+        "description": "Standalone for Preprocess CSV raw data into cleaned CSV for LGBM training",
+        "operatesOn": "standalone",
+        "transformMountpoints": [
+            {
+                "bucketId": 6701,
+                "mountPoint": "/mnt/s3fs/fpt-edge-impulse"
+            }
+        ]
+    },
+    "parameters": [
+        {
+            "name": "Bucket",
+            "type": "bucket",
+            "param": "bucket_name",
+            "value": "",
+            "help": "Bucket where your dataset is hosted"
+        },
+        {
+            "name": "Window Size",
+            "type": "int",
+            "param": "window_size",
+            "value": "30",
+            "help": "Window size in seconds for sample generation"
+        },
+        {
+            "name": "Sequence Length",
+            "type": "int",
+            "param": "seq_len",
+            "value": "30",
+            "help": "Number of rows to keep per sample before mean aggregation"
+        },
+        {
+            "name": "Skip Times",
+            "type": "int",
+            "param": "skip_times",
+            "value": "8",
+            "help": "Number of trailing rows to skip per trip for leakage prevention"
+        }
+    ]
+}

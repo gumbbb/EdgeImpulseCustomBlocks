@@ -1,0 +1,31 @@
+{
+    "version": 1,
+    "info": {
+        "description": "CAN Data Anomaly Detection Transformation",
+        "name": "CAN Transformation",
+        "operatesOn": "standalone"
+    },
+    "parameters": [
+        {
+            "name": "window_size",
+            "value": 30,
+            "type": "int",
+            "help": "Window size in seconds",
+            "param": "window_size"
+        },
+        {
+            "name": "num_negative_samples",
+            "value": 8,
+            "type": "int",
+            "help": "Number of negative samples per trip",
+            "param": "num_negative_samples"
+        },
+        {
+            "name": "skip_times",
+            "value": 10,
+            "type": "int",
+            "help": "Number of trailing rows to cut for leakage prevention",
+            "param": "skip_times"
+        }
+    ]
+}
