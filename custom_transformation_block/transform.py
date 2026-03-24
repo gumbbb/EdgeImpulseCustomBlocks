@@ -172,8 +172,15 @@ def save_window_as_ei_csv(window_df: pd.DataFrame, out_dir: str, file_prefix: st
     else:
         df_out['timestamp'] = (np.arange(len(df_out)) * 1000).astype(int)
         
+    # Ensure the label column is present for the CSV Wizard
+    df_out['label'] = label
+
     # Rearrange and drop internal processing columns
-    cols = ['timestamp'] + [c for c in df_out.columns if c not in ['timestamp', 'index', 'trip_id', 'new_trip_id', 'label', 'truth_label', 'times', 'group_trip_id', 'PCSALM']]
+    # We include 'label' here!
+    processed_cols = ['index', 'trip_id', 'new_trip_id', 'truth_label', 'times', 'group_trip_id', 'PCSALM']
+    cols = ['timestamp'] + [c for c in df_out.columns if c not in processed_cols and c != 'timestamp']
+    
+    # Ensure stable ordering for Edge Impulse
     df_out = df_out[cols]
 
     filepath = os.path.join(save_dir, f"{file_prefix}.csv")
