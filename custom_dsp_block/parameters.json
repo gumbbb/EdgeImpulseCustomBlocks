@@ -1,9 +1,17 @@
 {
     "version": 1,
+    "type": "dsp",
     "info": {
         "title": "CAN DSP Block",
         "author": "Developer",
-        "description": "CAN Anomaly DSP - Behavior Extraction & Aggregation"
+        "description": "CAN Anomaly DSP - Behavior Extraction & Aggregation",
+        "name": "can_dsp_block",
+        "cppType": "can_behavior",
+        "preferConvolution": false,
+        "visualization": "dimensionalityReduction",
+        "experimental": false,
+        "latestImplementationVersion": 1,
+        "port": 4446
     },
     "parameters": []
 }

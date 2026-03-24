@@ -1,31 +1,45 @@
 {
     "version": 1,
+    "type": "transform",
     "info": {
-        "description": "CAN Data Anomaly Detection Transformation",
-        "name": "CAN Transformation",
-        "operatesOn": "standalone"
+        "name": "CAN Transformation (Fewer Steps)",
+        "description": "Custom transformation block that extracts raw 1Hz windows for the Fused DSP architecture.",
+        "operatesOn": "standalone",
+        "transformMountpoints": [
+            {
+                "bucketId": 6701,
+                "mountPoint": "/mnt/s3fs/-edge-impulse"
+            }
+        ]
     },
     "parameters": [
         {
-            "name": "window_size",
-            "value": 30,
-            "type": "int",
-            "help": "Window size in seconds",
-            "param": "window_size"
+            "name": "Bucket",
+            "type": "bucket",
+            "param": "bucket_name",
+            "value": "",
+            "help": "Bucket where your dataset is hosted"
         },
         {
-            "name": "num_negative_samples",
-            "value": 8,
+            "name": "Window Size",
             "type": "int",
-            "help": "Number of negative samples per trip",
-            "param": "num_negative_samples"
+            "param": "window_size",
+            "value": "30",
+            "help": "Window size in seconds for sample generation"
         },
         {
-            "name": "skip_times",
-            "value": 10,
+            "name": "Num Negative Samples",
             "type": "int",
-            "help": "Number of trailing rows to cut for leakage prevention",
-            "param": "skip_times"
+            "param": "num_negative_samples",
+            "value": "8",
+            "help": "Number of negative samples per trip"
+        },
+        {
+            "name": "Skip Times",
+            "type": "int",
+            "param": "skip_times",
+            "value": "10",
+            "help": "Number of trailing rows to cut for leakage prevention"
         }
     ]
 }

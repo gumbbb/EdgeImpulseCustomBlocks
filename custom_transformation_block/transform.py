@@ -245,10 +245,18 @@ def main():
         args.out_directory = os.getenv('EI_OUTPUT_DIR', '/tmp/out')
     os.makedirs(args.out_directory, exist_ok=True)
 
+    # Ensure metadata is parsed securely if provided as a string via CLI
+    metadata_val = {}
+    if args.metadata:
+        try:
+            metadata_val = json.loads(args.metadata)
+        except Exception as e:
+            logger.warning("Failed to parse metadata string: %s", e)
+            
     metadata = {
         "version": 1,
         "action": "replace",
-        "metadata": json.loads(args.metadata) if args.metadata else {}
+        "metadata": metadata_val
     }
 
     input_base_path = detect_input_path(args)
