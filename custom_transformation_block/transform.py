@@ -155,28 +155,23 @@ def save_window_as_ei_csv(window_df: pd.DataFrame, out_dir: str, file_prefix: st
     Apply The 'Cut' (leakage prevention) if needed, format the timestamp correctly, 
     and save exactly 1 window per CSV to the Edge Impulse output directory.
     """
-    # Edge Impulse assigns categories/labels based on subfolder structure 
-    # e.g., output_dir/training/anomaly/file.csv
+    # Determine category for subdirectory (training vs testing)
     category_dir = "testing" if "test" in file_prefix else "training"
-    label_dir = "anomaly" if label == 1 else "normal"
-    
-    save_dir = os.path.join(out_dir, category_dir, label_dir)
+    save_dir = os.path.join(out_dir, category_dir)
     os.makedirs(save_dir, exist_ok=True)
     
     # Must format for EI time-series: first column is timestamp (ms)
     df_out = window_df.copy()
-    if 'times' in df_out.columns:
-        df_out['timestamp'] = (df_out['times'] * 1000).astype(int)
-    elif 'timestamp' in df_out.columns:
-        df_out['timestamp'] = pd.to_datetime(df_out["timestamp"], errors="coerce").astype('int64') // 10**6
-    else:
-        df_out['timestamp'] = (np.arange(len(df_out)) * 1000).astype(int)
+    
+    # Fix timestamp logic: if concatenating, we must ensure timestamps are continuous 
+    # and not resetting for every window in the same file.
+    # For a single file, we use a global relative timestamp.
+    df_out['timestamp'] = (np.arange(len(df_out)) * 1000).astype(int)
         
     # Ensure the label column is present for the CSV Wizard
     df_out['label'] = label
 
     # Rearrange and drop internal processing columns
-    # We include 'label' here!
     processed_cols = ['index', 'trip_id', 'new_trip_id', 'truth_label', 'times', 'group_trip_id', 'PCSALM']
     cols = ['timestamp'] + [c for c in df_out.columns if c not in processed_cols and c != 'timestamp']
     
@@ -212,29 +207,39 @@ def process_datasets(pcs_files: List[str], vdp_files: List[str],
 
         generator.load_data()
         generator.build_trip_dictionaries()
-        
-        # Step 4 Requirement: Match Normal trip counts with Anomaly trip counts
         generator.downsample_gen_trips_to_match_pcs(seed=42)
-        
-        # Generates RAW windows, labels them
         train_samples, test_samples = generator.generate_all_samples()
         
-        logger.info("Applying leakage 'Cut' and saving %d train, %d test windows...", len(train_samples), len(test_samples))
+        logger.info("Concatenating %d train and %d test windows into single dataframes...", len(train_samples), len(test_samples))
         
-        # Save Training Windows
+        final_train_dfs = []
         for i, window_df in enumerate(train_samples):
-            # The Cut! Remove the tail to prevent leakage
             cut_df = window_df.iloc[: -(skip_times + 1)].copy()
             if len(cut_df) > 0:
-                save_window_as_ei_csv(cut_df, output_directory, f"train_sample_{i}", label=window_df['label'].iloc[0])
-                saved_count += 1
+                # Add explicit label column before concatenation
+                cut_df['label'] = window_df['label'].iloc[0]
+                final_train_dfs.append(cut_df)
 
-        # Save Testing Windows
+        final_test_dfs = []
         for i, window_df in enumerate(test_samples):
             cut_df = window_df.iloc[: -(skip_times + 1)].copy()
             if len(cut_df) > 0:
-                save_window_as_ei_csv(cut_df, output_directory, f"test_sample_{i}", label=window_df['label'].iloc[0])
-                saved_count += 1
+                cut_df['label'] = window_df['label'].iloc[0]
+                final_test_dfs.append(cut_df)
+
+        # Save single unified training file
+        if final_train_dfs:
+            train_big_df = pd.concat(final_train_dfs, ignore_index=True)
+            save_window_as_ei_csv(train_big_df, output_directory, "training_data", label=0) # label value is dummy here as it's inside DF
+            saved_count += 1
+
+        # Save single unified testing file
+        if final_test_dfs:
+            test_big_df = pd.concat(final_test_dfs, ignore_index=True)
+            save_window_as_ei_csv(test_big_df, output_directory, "testing_data", label=0)
+            saved_count += 1
+
+    return saved_count
 
     return saved_count
 
