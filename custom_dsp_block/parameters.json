@@ -1,9 +1,9 @@
 {
     "version": 1,
     "info": {
-        "description": "CAN Anomaly DSP - Behavior Extraction & Aggregation",
-        "name": "CAN DSP Block",
-        "operatesOn": "standalone"
+        "title": "CAN DSP Block",
+        "author": "Developer",
+        "description": "CAN Anomaly DSP - Behavior Extraction & Aggregation"
     },
     "parameters": []
 }

@@ -12,6 +12,16 @@ def generate_features(implementation_version, draw_graphs, raw_data, axes, sampl
     
     df = pd.DataFrame(reshaped_data, columns=axes)
     
+    # --- EDGE IMPULSE MISSING AXIS RESOLUTION ---
+    # Ensure all required BASE_COLUMNS from the original project exist, 
+    # even if edge impulse stripped them out of this window to prevent KeyError
+    required_cols = [
+        "B_P", "OTHLDIS", "PKB_BDB", "SP1", "SSA", "TNS", "VSC_GX0", "VSC_GY0", "VSC_YAW0", "WSTP", "PWC", "LC"
+    ]
+    for col in required_cols:
+        if col not in df.columns:
+            df[col] = 0.0
+
     # --- PREPARE FOR ORIGINAL CODE PARITY ---
     # The original native functions require certain identifying columns
     if 'trip_id' not in df.columns:
@@ -28,7 +38,9 @@ def generate_features(implementation_version, draw_graphs, raw_data, axes, sampl
         # Edge impulse sends purely integer ms timestamps on time-series blocks
         df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', errors='coerce').fillna(pd.to_datetime('2025-01-01'))
     else:
-        df['timestamp'] = pd.to_datetime(np.arange(len(df)), unit='s', origin='2025-01-01')
+        # Reconstruct timestamp accurately using Edge Impulse's explicitly provided sampling_freq
+        sf = sampling_freq if sampling_freq > 0 else 1.0
+        df['timestamp'] = pd.to_datetime(np.arange(len(df)) / sf, unit='s', origin='2025-01-01')
     
     # --- STEP 4: FEATURE ENGINEERING ---
     # Exactly utilizing the original logic
