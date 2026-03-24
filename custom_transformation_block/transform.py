@@ -150,7 +150,7 @@ def preprocess_and_combine_files(csv_files: List[str], temp_dir: str, data_type:
 
     return output_path
 
-def save_window_as_ei_csv(window_df: pd.DataFrame, out_dir: str, file_prefix: str, label: int):
+def save_window_as_ei_csv(window_df: pd.DataFrame, out_dir: str, file_prefix: str, label: int, row_offset: int = 0):
     """
     Apply The 'Cut' (leakage prevention) if needed, format the timestamp correctly, 
     and save exactly 1 window per CSV to the Edge Impulse output directory.
@@ -165,7 +165,6 @@ def save_window_as_ei_csv(window_df: pd.DataFrame, out_dir: str, file_prefix: st
     
     # Note: timestamps must be continuous per file. 
     # This function expects the caller to manage global row offset if appending.
-    row_offset = kwargs.get('row_offset', 0)
     df_out['timestamp'] = ((np.arange(len(df_out)) + row_offset) * 1000).astype(int)
         
     # Ensure the label column is present for the CSV Wizard
