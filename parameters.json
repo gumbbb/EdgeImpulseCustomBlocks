@@ -8,7 +8,7 @@
         "transformMountpoints": [
             {
                 "bucketId": 6701,
-                "mountPoint": "/mnt/s3fs/fpt-edge-impulse"
+                "mountPoint": "/mnt/s3fs/-edge-impulse"
             }
         ]
     },

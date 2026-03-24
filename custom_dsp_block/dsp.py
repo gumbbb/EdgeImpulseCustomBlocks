@@ -1,14 +1,8 @@
 import numpy as np
 import pandas as pd
 from src.utils.features import add_all_features
+from src.utils.model_utils import prepare_data
 from sklearn.preprocessing import StandardScaler
-
-LGBM_FEATURES = [
-    "B_P", "OTHLDIS", "PKB_BDB", "SP1", "SSA", "times",
-    "avg_sudden_acceleration_count", "avg_harsh_break_count",
-    "avg_speed", "lc_count", "max_speed_continuous_above_130",
-    "TTC_filled", "lane_change_behavior_flag", "unsteady_driving_flag"
-]
 
 def generate_features(implementation_version, draw_graphs, raw_data, axes, sampling_freq, **kwargs):
     # Process the raw signal
@@ -18,39 +12,49 @@ def generate_features(implementation_version, draw_graphs, raw_data, axes, sampl
     
     df = pd.DataFrame(reshaped_data, columns=axes)
     
-    # Feature Engineering
-    if 'timestamp' not in df.columns and 'times' not in df.columns:
-        df['times'] = np.arange(len(df))
+    # --- PREPARE FOR ORIGINAL CODE PARITY ---
+    # The original native functions require certain identifying columns
+    if 'trip_id' not in df.columns:
+        df['trip_id'] = 'sample_window'
+    if 'new_trip_id' not in df.columns:
+        df['new_trip_id'] = 'sample_window'
+    if 'group_trip_id' not in df.columns:
+        df['group_trip_id'] = 'sample_window'
+    if 'label' not in df.columns:
+        df['label'] = 0  # Required for prepare_data max() grouping if missing
         
-    df = add_all_features(df)
-    df = df.fillna(0)
+    # features.py requires 'timestamp' to parse into standard pd.datetime properly
+    if 'timestamp' in df.columns:
+        # Edge impulse sends purely integer ms timestamps on time-series blocks
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', errors='coerce').fillna(pd.to_datetime('2025-01-01'))
+    else:
+        df['timestamp'] = pd.to_datetime(np.arange(len(df)), unit='s', origin='2025-01-01')
     
+    # --- STEP 4: FEATURE ENGINEERING ---
+    # Exactly utilizing the original logic
+    df = add_all_features(df, groupby_column='trip_id', time_column='timestamp')
+    
+    # Cleaning identical to load_data()
+    df = df.fillna(0)
     if 'TNS' in df.columns:
         df['TNS'] = df['TNS'].astype(int)
         
-    cols_to_select = LGBM_FEATURES.copy()
-    for col in cols_to_select:
-        if col not in df.columns:
-            df[col] = 0.0
-            
-    df_selected = df[cols_to_select].copy()
-    
-    agg_dict = {col: 'mean' for col in cols_to_select}
-    if 'label' in df.columns:
-        agg_dict['label'] = 'max'
-        df_selected['label'] = df['label']
-        
-    aggregated = df_selected.agg(agg_dict).to_frame().T
-    X = aggregated[LGBM_FEATURES].values
-    
+    # --- STEP 4: AGGREGATE ---
+    # Using the exact original `prepare_data` from model_utils.py.
+    # This automatically invokes .tail(seq_len) and groups by mean/max!
+    X, y, selected_cols, meta = prepare_data(df, seq_len=30)
+
+    # --- STEP 5: Data Normalizing (Scaling) ---
+    # Apply standard normalizer
     scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    # Safely apply to prevent zeroing-out if Edge Impulse only passes 1 sample batch in `/run`
+    if X.shape[0] > 1:
+        X_scaled = scaler.fit_transform(X)
+    else:
+        X_scaled = X # If 1 sample, variance is 0. Cannot fit standard scalar across a point.
+        
     features = X_scaled.flatten().tolist()
     
-    determined_label = None
-    if 'label' in aggregated.columns:
-        determined_label = str(int(aggregated['label'].iloc[0]))
-        
     result = {
         'features': features,
         'graphs': [],
@@ -62,7 +66,7 @@ def generate_features(implementation_version, draw_graphs, raw_data, axes, sampl
         }
     }
     
-    if determined_label is not None:
-        result['labels'] = [determined_label]
+    if y is not None and len(y) > 0:
+        result['labels'] = [str(int(y[0]))]
         
     return result
