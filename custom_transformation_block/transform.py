@@ -163,10 +163,10 @@ def save_window_as_ei_csv(window_df: pd.DataFrame, out_dir: str, file_prefix: st
     # Must format for EI time-series: first column is timestamp (ms)
     df_out = window_df.copy()
     
-    # Fix timestamp logic: if concatenating, we must ensure timestamps are continuous 
-    # and not resetting for every window in the same file.
-    # For a single file, we use a global relative timestamp.
-    df_out['timestamp'] = (np.arange(len(df_out)) * 1000).astype(int)
+    # Note: timestamps must be continuous per file. 
+    # This function expects the caller to manage global row offset if appending.
+    row_offset = kwargs.get('row_offset', 0)
+    df_out['timestamp'] = ((np.arange(len(df_out)) + row_offset) * 1000).astype(int)
         
     # Ensure the label column is present for the CSV Wizard
     df_out['label'] = label
@@ -179,7 +179,11 @@ def save_window_as_ei_csv(window_df: pd.DataFrame, out_dir: str, file_prefix: st
     df_out = df_out[cols]
 
     filepath = os.path.join(save_dir, f"{file_prefix}.csv")
-    df_out.to_csv(filepath, index=False)
+    
+    # Use append mode if the file already exists
+    header = not os.path.exists(filepath)
+    df_out.to_csv(filepath, mode='a', index=False, header=header)
+    return len(df_out)
 
 def process_datasets(pcs_files: List[str], vdp_files: List[str],
                      output_directory: str,
@@ -210,33 +214,32 @@ def process_datasets(pcs_files: List[str], vdp_files: List[str],
         generator.downsample_gen_trips_to_match_pcs(seed=42)
         train_samples, test_samples = generator.generate_all_samples()
         
-        logger.info("Concatenating %d train and %d test windows into single dataframes...", len(train_samples), len(test_samples))
+        logger.info("Streaming %d train and %d test windows to disk (Memory Efficient)...", len(train_samples), len(test_samples))
         
-        final_train_dfs = []
+        # Save Training Windows (STREAMING)
+        train_row_offset = 0
         for i, window_df in enumerate(train_samples):
             cut_df = window_df.iloc[: -(skip_times + 1)].copy()
             if len(cut_df) > 0:
-                # Add explicit label column before concatenation
-                cut_df['label'] = window_df['label'].iloc[0]
-                final_train_dfs.append(cut_df)
+                rows_written = save_window_as_ei_csv(cut_df, output_directory, "training_data", 
+                                                    label=window_df['label'].iloc[0], 
+                                                    row_offset=train_row_offset)
+                train_row_offset += rows_written
+        
+        if train_row_offset > 0:
+            saved_count += 1
 
-        final_test_dfs = []
+        # Save Testing Windows (STREAMING)
+        test_row_offset = 0
         for i, window_df in enumerate(test_samples):
             cut_df = window_df.iloc[: -(skip_times + 1)].copy()
             if len(cut_df) > 0:
-                cut_df['label'] = window_df['label'].iloc[0]
-                final_test_dfs.append(cut_df)
-
-        # Save single unified training file
-        if final_train_dfs:
-            train_big_df = pd.concat(final_train_dfs, ignore_index=True)
-            save_window_as_ei_csv(train_big_df, output_directory, "training_data", label=0) # label value is dummy here as it's inside DF
-            saved_count += 1
-
-        # Save single unified testing file
-        if final_test_dfs:
-            test_big_df = pd.concat(final_test_dfs, ignore_index=True)
-            save_window_as_ei_csv(test_big_df, output_directory, "testing_data", label=0)
+                rows_written = save_window_as_ei_csv(cut_df, output_directory, "testing_data", 
+                                                    label=window_df['label'].iloc[0], 
+                                                    row_offset=test_row_offset)
+                test_row_offset += rows_written
+        
+        if test_row_offset > 0:
             saved_count += 1
 
     return saved_count
